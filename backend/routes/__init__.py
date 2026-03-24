@@ -1,13 +1,20 @@
+"""
+Routes package initialization.
+This file initializes the routes module and sets up Blueprint registration.
+"""
 from flask import Blueprint
 
 # Create a Blueprint for API routes
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
-# Import route definitions after Blueprint creation to avoid circular imports
-from . import api
+# Import routes to register them with the blueprint
+from .api import *  # noqa
 
-# Register the routes with the Blueprint
-def init_app(app):
-    """Register the API routes with the Flask application"""
-    app.register_blueprint(api_bp)
+# List of all blueprints for easy registration with the Flask app
+blueprints = [api_bp]
+
+def register_blueprints(app):
+    """Register all blueprints with the Flask application."""
+    for blueprint in blueprints:
+        app.register_blueprint(blueprint)
     return app
