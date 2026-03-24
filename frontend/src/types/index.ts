@@ -1,40 +1,18 @@
-// Common interfaces used across the application
-
+// /workspace/frontend/src/types/index.ts
 /**
- * Contact form data interface
+ * Centralized type definitions for the application
  */
-export interface ContactFormData {
-  name: string;
-  email: string;
-  company?: string;
+
+// Re-export types from API service for convenience
+export type { Feature, Testimonial, ContactInfo } from '../services/api';
+
+// Additional app-specific types
+export interface ErrorState {
   message: string;
+  code?: number;
 }
 
-/**
- * API response interface
- */
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  message?: string;
-  error?: string;
-}
-
-/**
- * Feature interface for feature section
- */
-export interface Feature {
-  id: number;
-  title: string;
-  description: string;
-  icon: string;
-}
-
-/**
- * Navigation item interface
- */
-export interface NavItem {
-  label: string;
-  path: string;
-  external?: boolean;
+export interface LoadingState {
+  isLoading: boolean;
+  loadingMessage?: string;
 }
