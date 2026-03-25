@@ -3,6 +3,7 @@ import { Container, Typography, Button, Box, Paper } from '@mui/material';
 
 interface Props {
   children: ReactNode;
+  fallback?: ReactNode;
 }
 
 interface State {
@@ -33,6 +34,11 @@ class ErrorBoundary extends Component<Props, State> {
 
     // Log error to an error reporting service
     console.error("Uncaught error:", error, errorInfo);
+    
+    // In production, you would send this to a logging service
+    if (process.env.NODE_ENV === 'production') {
+      // logErrorToService(error, errorInfo);
+    }
   }
 
   handleReset = (): void => {
@@ -42,6 +48,11 @@ class ErrorBoundary extends Component<Props, State> {
 
   render(): ReactNode {
     if (this.state.hasError) {
+      // If a fallback is provided, use it
+      if (this.props.fallback) {
+        return this.props.fallback;
+      }
+      
       return (
         <Container maxWidth="md" sx={{ py: 8 }}>
           <Paper elevation={3} sx={{ p: 4, borderRadius: 2 }}>

@@ -1,7 +1,7 @@
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { CssBaseline, ThemeProvider, CircularProgress, Box } from '@mui/material';
-import { HelmetProvider } from 'react-helmet-async';
+import { HelmetProvider, Helmet } from 'react-helmet-async';
 import theme from './theme';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -68,6 +68,11 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <HelmetProvider>
+        <Helmet>
+          <title>GenAI Landing Page</title>
+          <meta name="description" content="Secure GenAI Landing Page" />
+          {/* CSP can also be set here programmatically */}
+        </Helmet>
         <ThemeProvider theme={theme}>
           <CssBaseline />
           <Router>

@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /api/
+Disallow: /admin/
+Allow: /$
+Allow: /about$
+Allow: /contact$
+Allow: /services$
