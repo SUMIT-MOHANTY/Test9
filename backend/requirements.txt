@@ -1,5 +1,26 @@
-Flask==2.0.1
+# Core Flask dependencies
+Flask==2.2.3
+Werkzeug==2.2.3
+Jinja2==3.0.1
+itsdangerous==2.0.1
+click==8.0.1
+
+# Flask extensions
 Flask-Cors==3.0.10
+
+# Environment and configuration
+python-dotenv==1.0.0
+python-json-logger==2.0.2
+
+# Testing and development
+pytest==7.3.1
+pytest-flask==1.2.0
+flake8==6.0.0
+black==23.3.0
+
+# Production dependencies
 gunicorn==20.1.0
-python-dotenv==0.19.0
-pytest==6.2.5
+gevent==22.10.2
+
+# Utilities
+email-validator==1.1.3

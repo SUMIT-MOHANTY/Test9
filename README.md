@@ -1,5 +1,14 @@
-# GenAI Landing Page
+# GenAI Landing Page with Flask & React Integration
 
-A modern landing page for a fictional GenAI company, showcasing artificial intelligence capabilities. Built with React (frontend) and Flask (backend).
+This project integrates a Flask backend with a React frontend, providing API services for the landing page.
 
-## Project Structure
+## Backend Setup
+
+The backend is built with Flask and uses Flask-CORS for handling cross-origin requests.
+
+### Prerequisites
+
+- Python 3.7+
+- pip
+
+### Installation
