@@ -1,169 +1,114 @@
-/**
- * API Service for making requests to the backend
- */
+import axios, { AxiosError, AxiosResponse } from 'axios';
 
-// Define the base URL for API requests
-const API_BASE_URL = process.env.NODE_ENV === 'production'
-  ? 'https://your-production-domain.com/api'
-  : 'http://localhost:5000/api';
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // ms
 
-// Common interface for API responses
-interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-}
+const api = axios.create({
+  baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true, // Enables sending cookies with requests
+});
 
-// Type definitions for various API resources
-export interface Feature {
-  id: number;
-  title: string;
-  description: string;
-  icon: string;
-}
+// Request interceptor for API calls
+api.interceptors.request.use(
+  (config) => {
+    // Get CSRF token from cookie if it exists
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      config.headers['X-CSRF-Token'] = csrfToken;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
-export interface Testimonial {
-  id: number;
-  name: string;
-  company: string;
-  quote: string;
-  avatar: string;
-}
+// Response interceptor for API calls
+api.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const config = error.config;
 
-export interface PricingPlan {
-  id: number;
-  name: string;
-  price: number;
-  period: string;
-  features: string[];
-}
+    // Property doesn't exist on type 'AxiosRequestConfig', adding a custom property
+    const customConfig = config as any;
 
-export interface ContactFormData {
-  name: string;
-  email: string;
-  message: string;
-  company?: string;
-  phone?: string;
-}
+    // Retry logic for network errors or 5xx responses
+    if (
+      (error.response?.status && error.response.status >= 500) ||
+      error.code === 'ECONNABORTED' ||
+      !error.response
+    ) {
+      if (!customConfig._retry || customConfig._retry < MAX_RETRIES) {
+        customConfig._retry = (customConfig._retry || 0) + 1;
 
-/**
- * Generic function for handling API requests
- * @param endpoint The API endpoint to call
- * @param options Request options (method, headers, body, etc.)
- * @returns Promise with the API response
- */
-async function apiRequest<T>(
-  endpoint: string,
-  options: RequestInit = {}
-): Promise<ApiResponse<T>> {
-  try {
-    // Set default headers if not provided
-    const headers = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
 
-    // Make the API request
-    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
-
-    // Parse the JSON response
-    const data: ApiResponse<T> = await response.json();
-
-    // Check if the response was successful
-    if (!response.ok) {
-      throw new Error(data.error || `HTTP error ${response.status}`);
+        return api(config);
+      }
     }
 
-    return data;
+    // Handle 401 Unauthorized - redirect to login
+    if (error.response?.status === 401) {
+      // Clear any stored authentication
+      localStorage.removeItem('user');
+
+      // Redirect to login if not already there
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
+
+// Helper function to extract CSRF token from cookies
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+  return match ? match[2] : null;
+}
+
+// Type-safe API methods
+export const fetchData = async <T>(url: string): Promise<T> => {
+  try {
+    const response: AxiosResponse<T> = await api.get(url);
+    return response.data;
   } catch (error) {
-    console.error('API request failed:', error);
+    handleApiError(error);
     throw error;
   }
-}
+};
 
-// API functions for different endpoints
-export const api = {
-  /**
-   * Get all features
-   * @returns Promise with features data
-   */
-  getFeatures: async (): Promise<Feature[]> => {
-    const response = await apiRequest<Feature[]>('/features');
-    return response.data || [];
-  },
+export const postData = async <T>(url: string, data: any): Promise<T> => {
+  try {
+    const response: AxiosResponse<T> = await api.post(url, data);
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+    throw error;
+  }
+};
 
-  /**
-   * Get all testimonials
-   * @returns Promise with testimonials data
-   */
-  getTestimonials: async (): Promise<Testimonial[]> => {
-    const response = await apiRequest<Testimonial[]>('/testimonials');
-    return response.data || [];
-  },
+// Enhanced error handling
+const handleApiError = (error: any): void => {
+  if (axios.isAxiosError(error)) {
+    const axiosError = error as AxiosError;
 
-  /**
-   * Get pricing plans
-   * @returns Promise with pricing data
-   */
-  getPricingPlans: async (): Promise<PricingPlan[]> => {
-    const response = await apiRequest<PricingPlan[]>('/pricing');
-    return response.data || [];
-  },
-
-  /**
-   * Submit contact form
-   * @param formData The contact form data
-   * @returns Promise with submission result
-   */
-  submitContactForm: async (formData: ContactFormData): Promise<{ success: boolean; message?: string }> => {
-    try {
-      // Validate form data before submission
-      if (!formData.name || !formData.email || !formData.message) {
-        throw new Error('Please fill in all required fields');
-      }
-
-      // Basic email validation
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.email)) {
-        throw new Error('Please enter a valid email address');
-      }
-
-      const response = await apiRequest<{ message: string }>('/contact', {
-        method: 'POST',
-        body: JSON.stringify(formData),
-      });
-
-      return {
-        success: true,
-        message: response.message || 'Form submitted successfully',
-      };
-    } catch (error) {
-      console.error('Contact form submission failed:', error);
-      return {
-        success: false,
-        message: error instanceof Error ? error.message : 'An unknown error occurred',
-      };
+    // Log different types of errors appropriately
+    if (!axiosError.response) {
+      console.error('Network Error:', axiosError.message);
+    } else {
+      console.error(`API Error ${axiosError.response.status}:`,
+        axiosError.response.data);
     }
-  },
-
-  /**
-   * Health check for the API
-   * @returns Promise with health status
-   */
-  checkHealth: async (): Promise<boolean> => {
-    try {
-      const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`);
-      const data = await response.json();
-      return data.status === 'healthy';
-    } catch (error) {
-      console.error('Health check failed:', error);
-      return false;
-    }
-  },
+  } else {
+    console.error('Unexpected Error:', error);
+  }
 };
 
 export default api;

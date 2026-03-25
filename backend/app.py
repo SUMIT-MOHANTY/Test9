@@ -1,94 +1,79 @@
 """
 Main Flask application entry point.
-This file initializes and configures the Flask application.
 """
 import os
 import logging
-from flask import Flask, send_from_directory, jsonify, request
+from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
-from config import config_by_name
-from routes import register_blueprints, api
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from backend.config import get_config
 
-# Configure logging
+# Set up logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-def create_app(config_name="default"):
-    """
-    Create and configure the Flask application.
+def create_app(config_name=None):
+    """Application factory pattern to create the Flask app."""
+    # Initialize Flask app
+    app = Flask(__name__, static_folder=None)
 
-    Args:
-        config_name: Configuration environment to use (default, development, testing, production)
+    # Load configuration
+    config = get_config()
+    app.config.from_object(config)
 
-    Returns:
-        Configured Flask application
-    """
-    app = Flask(__name__,
-                static_folder="../frontend/build/static",
-                template_folder="../frontend/build")
-
-    # Load configuration based on environment
-    app.config.from_object(config_by_name[config_name])
+    # Initialize extensions
+    limiter = Limiter(
+        get_remote_address,
+        app=app,
+        default_limits=["100 per minute"],
+        storage_uri=app.config.get("RATELIMIT_STORAGE_URL", "memory://"),
+    )
 
     # Configure CORS
-    # Allow requests from the frontend origin
-    CORS(app, resources={
-        r"/api/*": {
-            "origins": ["http://localhost:3000", "https://your-production-domain.com"],
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            "allow_headers": ["Content-Type", "Authorization"]
-        }
-    })
+    CORS(app, resources={r"/api/*": {"origins": app.config.get('CORS_ORIGINS')}})
 
-    # Register blueprints
-    register_blueprints(app)
-    app.register_blueprint(api.bp, url_prefix='/api')
+    # Register routes
+    from backend.routes import init_app as init_routes
+    init_routes(app)
 
-    # Setup error handlers
-    @app.errorhandler(404)
-    def not_found(e):
-        """Handle 404 errors globally."""
-        if request.path.startswith('/api/'):
-            return jsonify({"error": "API endpoint not found"}), 404
-        return send_from_directory('../frontend/build', 'index.html')
+    # Add security headers middleware
+    @app.after_request
+    def add_security_headers(response):
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        response.headers['Content-Security-Policy'] = "default-src 'self'"
+        return response
 
-    @app.errorhandler(500)
-    def server_error(e):
-        """Handle 500 errors globally."""
-        logger.error(f"Server error: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
-
-    # Route to serve React app
+    # Serve React frontend in production
     @app.route('/', defaults={'path': ''})
     @app.route('/<path:path>')
-    def serve(path):
-        """
-        Serve the React frontend.
-
-        For API calls, these will be handled by the API blueprint.
-        For all other routes, serve the React app and let it handle routing.
-        """
-        if path != "" and os.path.exists(os.path.join(app.static_folder, path)):
-            return send_from_directory(app.static_folder, path)
+    def serve_react(path):
+        if path and os.path.exists(os.path.join('../frontend/build', path)):
+            return send_from_directory('../frontend/build', path)
         return send_from_directory('../frontend/build', 'index.html')
 
-    # Health check endpoint
-    @app.route('/health')
-    def health():
-        """Health check endpoint for monitoring."""
-        return jsonify({"status": "healthy"}), 200
+    # Custom 404 handler for API routes
+    @app.errorhandler(404)
+    def not_found(e):
+        if request.path.startswith('/api/'):
+            return jsonify(error=str(e)), 404
+        return serve_react('')
 
-    logger.info(f"Flask app initialized with {config_name} configuration")
     return app
 
 if __name__ == '__main__':
-    # Get configuration from environment or use development by default
-    env = os.getenv('FLASK_ENV', 'development')
-    app = create_app(env)
-    
-    # Run the app
-    port = int(os.getenv('PORT', 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app = create_app()
+
+    # Use secure debug settings
+    debug = os.environ.get('FLASK_DEBUG', 'False').lower() == 'true'
+
+    if debug and not os.environ.get('FLASK_ENV') == 'production':
+        app.run(debug=True, host='0.0.0.0', port=5000)
+    else:
+        # For production, prefer gunicorn or another WSGI server
+        app.run(debug=False, host='0.0.0.0', port=5000)

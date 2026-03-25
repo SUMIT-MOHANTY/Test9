@@ -5,12 +5,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
+    container_name: genai-frontend
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    ports:
+      - "3000:3000"
     environment:
+      - NODE_ENV=development
       - REACT_APP_API_URL=http://localhost:5000/api
     depends_on:
       - backend
@@ -21,10 +23,11 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "5000:5000"
+    container_name: genai-backend
     volumes:
       - ./backend:/app
+    ports:
+      - "5000:5000"
     environment:
       - FLASK_APP=app.py
       - FLASK_ENV=development
@@ -35,3 +38,6 @@ services:
 networks:
   genai-network:
     driver: bridge
+
+volumes:
+  node_modules:

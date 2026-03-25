@@ -1,46 +1,35 @@
 import React from 'react';
+import { AboutAIProps } from '../types';
 
-const AboutAI: React.FC = () => {
+const AboutAI: React.FC<AboutAIProps> = ({
+  title,
+  description,
+  imageUrl
+}) => {
   return (
-    <section id="about" className="about-ai">
+    <section id="about" className="about-section">
       <div className="container">
         <div className="about-content">
           <div className="about-text">
-            <h2>About Our AI Technology</h2>
-            <p>
-              At GenAI, we're pioneering the next generation of artificial intelligence solutions
-              designed to solve complex business problems and drive innovation across industries.
-            </p>
-            <p>
-              Our proprietary algorithms are built on cutting-edge research in deep learning,
-              neural networks, and reinforcement learning. We combine these technologies with
-              domain expertise to create AI systems that deliver real business value.
-            </p>
-            <p>
-              With a focus on ethical AI development and transparent processes, we ensure our
-              technology is not only powerful but also responsible and accessible.
-            </p>
+            <h2>{title}</h2>
+            <p>{description}</p>
+            <ul className="about-benefits">
+              <li>Advanced natural language processing</li>
+              <li>Image and video generation capabilities</li>
+              <li>Custom AI solutions for businesses</li>
+              <li>Scalable and secure infrastructure</li>
+            </ul>
+          </div>
 
-            <div className="about-stats">
-              <div className="stat">
-                <h3>99.8%</h3>
-                <p>Accuracy Rate</p>
-              </div>
-              <div className="stat">
-                <h3>500+</h3>
-                <p>Enterprise Clients</p>
-              </div>
-              <div className="stat">
-                <h3>24/7</h3>
-                <p>AI Availability</p>
-              </div>
+          {imageUrl && (
+            <div className="about-image">
+              <img
+                src={imageUrl}
+                alt="AI Capabilities Visualization"
+                loading="lazy"
+              />
             </div>
-          </div>
-
-          <div className="about-image">
-            {/* Placeholder for about section image */}
-            <div className="tech-diagram"></div>
-          </div>
+          )}
         </div>
       </div>
     </section>

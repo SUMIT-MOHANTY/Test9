@@ -1,12 +1,14 @@
-// /workspace/frontend/src/index.tsx
 import React from 'react';
-import ReactDOM from 'react-dom';
-import './styles/global.css';
-import App from './App';
+import ReactDOM from 'react-dom/client';
+import Home from './pages/Home';
 
-ReactDOM.render(
+// Main entry point for the React application
+const root = ReactDOM.createRoot(
+  document.getElementById('root') as HTMLElement
+);
+
+root.render(
   <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-  document.getElementById('root')
+    <Home />
+  </React.StrictMode>
 );
