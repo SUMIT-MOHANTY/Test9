@@ -1,70 +1,127 @@
-import { AxiosError } from 'axios';
+/**
+ * API service for communicating with the backend
+ */
 
-// Define API base URL
+// Base URL for API requests
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-// Interface for contact form data
-interface ContactFormData {
+// Types for API responses
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+}
+
+export interface Feature {
+  id: number;
+  title: string;
+  description: string;
+  icon: string;
+}
+
+export interface Testimonial {
+  id: number;
+  name: string;
+  company: string;
+  comment: string;
+  avatar: string;
+}
+
+export interface PricingPlan {
+  id: number;
+  name: string;
+  price: string;
+  features: string[];
+}
+
+export interface ContactFormData {
   name: string;
   email: string;
-  company?: string;
   message: string;
 }
 
 /**
- * Sends contact form data to the backend API
- * @param formData The contact form data
- * @returns Promise with the response data
+ * Generic fetch wrapper with error handling
  */
-export const sendContactForm = async (formData: ContactFormData): Promise<any> => {
+async function fetchAPI<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<ApiResponse<T>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/contact`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData),
+    const url = `${API_BASE_URL}${endpoint}`;
+
+    // Set default headers for JSON
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to send contact form');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('API Error:', error);
-    throw error;
-  }
-};
-
-/**
- * Fetches general information about the API
- * @returns Promise with the API information
- */
-export const getApiInfo = async (): Promise<any> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/hello`);
+    const data = await response.json();
 
     if (!response.ok) {
-      throw new Error('Failed to fetch API information');
+      throw new Error(data.error || `API request failed with status ${response.status}`);
     }
 
-    return await response.json();
+    return data as ApiResponse<T>;
   } catch (error) {
-    console.error('API Error:', error);
-    throw error;
+    console.error('API request failed:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
+  }
+}
+
+/**
+ * API methods for the GenAI Landing Page
+ */
+const api = {
+  /**
+   * Fetch all features
+   */
+  getFeatures: async (): Promise<ApiResponse<Feature[]>> => {
+    return fetchAPI<Feature[]>('/features');
+  },
+
+  /**
+   * Fetch all testimonials
+   */
+  getTestimonials: async (): Promise<ApiResponse<Testimonial[]>> => {
+    return fetchAPI<Testimonial[]>('/testimonials');
+  },
+
+  /**
+   * Fetch pricing plans
+   */
+  getPricing: async (): Promise<ApiResponse<PricingPlan[]>> => {
+    return fetchAPI<PricingPlan[]>('/pricing');
+  },
+
+  /**
+   * Submit contact form
+   */
+  submitContactForm: async (formData: ContactFormData): Promise<ApiResponse<null>> => {
+    return fetchAPI<null>('/contact', {
+      method: 'POST',
+      body: JSON.stringify(formData)
+    });
+  },
+
+  /**
+   * Subscribe to newsletter
+   */
+  subscribeNewsletter: async (email: string): Promise<ApiResponse<null>> => {
+    return fetchAPI<null>('/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
   }
 };
 
-/**
- * Generic error handler for API requests
- * @param error The error object
- * @returns Formatted error message
- */
-export const handleApiError = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return 'An unknown error occurred';
-};
+export default api;
