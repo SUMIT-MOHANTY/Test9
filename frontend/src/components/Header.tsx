@@ -1,29 +1,53 @@
 import React, { useState } from 'react';
+import '../styles/components.css';
+import { HeaderProps } from '../types';
 
-const Header: React.FC = () => {
+const Header: React.FC<HeaderProps> = ({ title = 'GenAI' }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  const toggleMenu = () => {
-    setIsMenuOpen(!isMenuOpen);
-  };
+  // Security: Prevent tab-nabbing with noopener/noreferrer for external links
+  const safeRelAttribute = "noopener noreferrer";
 
   return (
-    <header className="header">
-      <div className="container">
+    <header className="header" role="banner">
+      <div className="container header-container">
         <div className="logo">
-          <h1>GenAI</h1>
+          <a href="/" aria-label="GenAI Home">
+            <span className="logo-text">{title}</span>
+          </a>
         </div>
 
-        <button className="mobile-menu-btn" onClick={toggleMenu}>
-          <span className={`hamburger ${isMenuOpen ? 'active' : ''}`}></span>
+        {/* Accessible mobile menu toggle */}
+        <button
+          className="mobile-menu-toggle"
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+          aria-expanded={isMenuOpen}
+          aria-controls="navigation"
+          aria-label={isMenuOpen ? "Close menu" : "Open menu"}
+        >
+          <span className="sr-only">Menu</span>
+          <span className="hamburger"></span>
         </button>
 
-        <nav className={`main-nav ${isMenuOpen ? 'active' : ''}`}>
+        <nav
+          id="navigation"
+          className={`navigation ${isMenuOpen ? 'is-open' : ''}`}
+          role="navigation"
+          aria-label="Main navigation"
+        >
           <ul>
-            <li><a href="#home">Home</a></li>
-            <li><a href="#features">Features</a></li>
-            <li><a href="#about">About AI</a></li>
-            <li><a href="#contact">Contact</a></li>
+            <li><a href="#features" onClick={() => setIsMenuOpen(false)}>Features</a></li>
+            <li><a href="#about" onClick={() => setIsMenuOpen(false)}>About AI</a></li>
+            <li><a href="#contact" onClick={() => setIsMenuOpen(false)}>Contact</a></li>
+            <li>
+              <a
+                href="/privacy-policy"
+                className="privacy-link"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Privacy Policy
+              </a>
+            </li>
           </ul>
         </nav>
       </div>

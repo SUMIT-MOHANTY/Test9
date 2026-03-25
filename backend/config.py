@@ -1,19 +1,63 @@
+"""
+Configuration settings for the Flask application.
+
+This module defines configuration classes for different environments
+(development, testing, production) and loads environment variables.
+"""
+
 import os
+from typing import List, Dict, Any, Union
+from datetime import timedelta
+from dotenv import load_dotenv
+
+load_dotenv()  # Load environment variables from .env file if present
 
 class Config:
-    """Base configuration class for the Flask application"""
-    # Security
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+    """Base configuration class with common settings."""
+    # Application settings
+    VERSION = '1.0.0'
+    ENVIRONMENT = os.environ.get('FLASK_ENV', 'development')
+    SECRET_KEY = os.getenv('SECRET_KEY', 'dev_key_for_development_only')
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or SECRET_KEY
+    JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=1)
+    DEBUG = False
+    TESTING = False
+
+    # API configuration
+    API_TITLE = 'GenAI Landing Page API'
+    API_VERSION = 'v1'
+    API_PREFIX = '/api'
 
     # Application directories
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     STATIC_FOLDER = os.path.join(BASE_DIR, 'static')
     TEMPLATES_FOLDER = os.path.join(BASE_DIR, 'templates')
 
-    # CORS settings - allow frontend to communicate with backend
+    # Security settings
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    PERMANENT_SESSION_LIFETIME = timedelta(days=7)
+
+    # CORS settings
+    CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*').split(',')
     CORS_HEADERS = 'Content-Type'
 
-    # Email configuration for contact form (to be implemented)
+    # Rate limiting
+    ENABLE_RATE_LIMITING = True
+    RATELIMIT_DEFAULT = "100 per minute"
+    RATELIMIT_STORAGE_URL = "memory://"
+
+    # Validation settings
+    EMAIL_REGEX = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+
+    # Misc settings
+    JSON_SORT_KEYS = False
+
+    # Logging configuration
+    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+
+    # Email configuration for contact form
     MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.example.com')
     MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
     MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', True)
@@ -23,22 +67,64 @@ class Config:
 
     @staticmethod
     def init_app(app):
-        """Initialize application with this configuration"""
+        """Initialize app with this configuration."""
         pass
 
 class DevelopmentConfig(Config):
-    """Development configuration"""
+    """Development environment configuration."""
     DEBUG = True
     TESTING = False
+    ENV = 'development'
+    ENABLE_RATE_LIMITING = False
+    CORS_ORIGINS = '*'  # Allow all origins in development
+
+    @staticmethod
+    def init_app(app):
+        """Initialize app with development configuration."""
+        Config.init_app(app)
+        app.logger.info('Development configuration loaded')
+
+class TestingConfig(Config):
+    """Testing environment configuration."""
+    TESTING = True
+    DEBUG = True
+    ENV = 'testing'
+    ENABLE_RATE_LIMITING = False
+
+    @staticmethod
+    def init_app(app):
+        """Initialize app with testing configuration."""
+        Config.init_app(app)
+        app.logger.info('Testing configuration loaded')
 
 class ProductionConfig(Config):
-    """Production configuration"""
+    """Production environment configuration."""
     DEBUG = False
     TESTING = False
+    ENV = 'production'
+    # In production, use environment variable for secret key
+    SECRET_KEY = os.getenv('SECRET_KEY')  # Must be set in production
+    # Restrict CORS in production to specific domains
+    CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'https://yourdomain.com').split(',')
 
     @classmethod
     def init_app(cls, app):
         Config.init_app(app)
+
+        # Validate production configuration
+        assert os.environ.get('SECRET_KEY'), "SECRET_KEY must be set in production"
+        assert os.environ.get('JWT_SECRET_KEY'), "JWT_SECRET_KEY must be set in production"
+        assert os.environ.get('CORS_ORIGINS'), "CORS_ORIGINS must be explicitly set in production"
+
+        # Use secure cookies
+        app.config['SESSION_COOKIE_SECURE'] = True
+        app.config['SESSION_COOKIE_HTTPONLY'] = True
+        app.config['REMEMBER_COOKIE_SECURE'] = True
+        app.config['REMEMBER_COOKIE_HTTPONLY'] = True
+
+        # More restrictive CORS in production
+        if '*' in cls.CORS_ORIGINS:
+            raise ValueError("Wildcard CORS origin not allowed in production")
 
         # Log to stderr in production
         import logging
@@ -52,10 +138,21 @@ class ProductionConfig(Config):
         file_handler.setLevel(logging.INFO)
         app.logger.addHandler(file_handler)
         app.logger.setLevel(logging.INFO)
+        app.logger.info('Production configuration loaded')
 
-# Configuration dictionary
-config = {
+# Configuration dictionary mapping environment names to config classes
+config_by_name: Dict[str, Any] = {
     'development': DevelopmentConfig,
+    'testing': TestingConfig,
     'production': ProductionConfig,
     'default': DevelopmentConfig
 }
+
+# Export the appropriate configuration based on FLASK_ENV
+env = os.environ.get('FLASK_ENV', 'development')
+current_config = config_by_name.get(env, DevelopmentConfig)
+
+def get_config():
+    """Returns the appropriate configuration based on environment."""
+    env = os.environ.get('FLASK_ENV', 'default')
+    return config_by_name.get(env, config_by_name['default'])

@@ -1,13 +1,18 @@
+"""
+Initialize Flask route blueprints.
+"""
 from flask import Blueprint
 
-# Create a Blueprint for API routes
+# Create API blueprint
 api_bp = Blueprint('api', __name__, url_prefix='/api')
 
-# Import route definitions after Blueprint creation to avoid circular imports
-from . import api
+# Import routes after blueprint creation to avoid circular imports
+from backend.routes.api import *
 
-# Register the routes with the Blueprint
 def init_app(app):
-    """Register the API routes with the Flask application"""
+    """Register all blueprints with the app."""
     app.register_blueprint(api_bp)
-    return app
+
+    # Register error handlers
+    from backend.routes.error_handlers import register_error_handlers
+    register_error_handlers(app)
