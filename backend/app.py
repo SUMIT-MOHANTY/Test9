@@ -8,6 +8,7 @@ from flask import Flask, send_from_directory, jsonify, request
 from flask_cors import CORS
 from config import config_by_name
 from routes import register_blueprints, api
+from routes.api import api_bp
 
 # Configure logging
 logging.basicConfig(
@@ -45,7 +46,7 @@ def create_app(config_name="default"):
 
     # Register blueprints
     register_blueprints(app)
-    app.register_blueprint(api.bp, url_prefix='/api')
+    app.register_blueprint(api_bp, url_prefix='/api')
 
     # Setup error handlers
     @app.errorhandler(404)

@@ -3,9 +3,8 @@ API routes for the GenAI Landing Page.
 This module defines the API endpoints that provide data to the frontend.
 """
 import logging
-from flask import jsonify, request, abort
 import json
-import os
+from flask import jsonify, request, Blueprint, abort
 from werkzeug.exceptions import HTTPException
 from . import api_bp
 
@@ -105,10 +104,10 @@ def get_features():
         JSON object with features array
     """
     try:
-        return jsonify({"features": FEATURES}), 200
+        return jsonify({"success": True, "data": FEATURES}), 200
     except Exception as e:
         logging.error(f"Error retrieving features: {str(e)}")
-        return jsonify({"error": "Failed to retrieve features"}), 500
+        return jsonify({"success": False, "error": "Failed to retrieve features"}), 500
 
 @api_bp.route('/testimonials', methods=['GET'])
 def get_testimonials():
@@ -119,10 +118,10 @@ def get_testimonials():
         JSON object with testimonials array
     """
     try:
-        return jsonify({"testimonials": TESTIMONIALS}), 200
+        return jsonify({"success": True, "data": TESTIMONIALS}), 200
     except Exception as e:
         logging.error(f"Error retrieving testimonials: {str(e)}")
-        return jsonify({"error": "Failed to retrieve testimonials"}), 500
+        return jsonify({"success": False, "error": "Failed to retrieve testimonials"}), 500
 
 @api_bp.route('/contact', methods=['GET'])
 def get_contact():
@@ -148,7 +147,7 @@ def contact():
         required_fields = ['name', 'email', 'message']
         for field in required_fields:
             if field not in data or not data[field].strip():
-                return jsonify({"error": f"Missing required field: {field}"}), 400
+                return jsonify({"success": False, "error": f"Missing required field: {field}"}), 400
         
         # Validate email format (basic validation)
         if '@' not in data['email'] or '.' not in data['email']:
@@ -165,7 +164,7 @@ def contact():
             "message": "Thank you for your message! We will get back to you soon."
         })
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"success": False, "error": str(e)}), 500
 
 @api_bp.route('/pricing', methods=['GET'])
 def get_pricing():
@@ -175,16 +174,35 @@ def get_pricing():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+@api_bp.route('/subscribe', methods=['POST'])
+def subscribe_newsletter():
+    try:
+        data = request.get_json()
+
+        # Validate email field
+        if 'email' not in data or not data['email']:
+            return jsonify({"success": False, "error": "Email is required"}), 400
+
+        # Simple email validation
+        email = data['email']
+        if '@' not in email or '.' not in email:
+            return jsonify({"success": False, "error": "Invalid email format"}), 400
+
+        # In a real application, you would save this to a database
+        return jsonify({"success": True, "message": "Subscribed to newsletter successfully"}), 201
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # Error handlers for the API blueprint
 @api_bp.errorhandler(404)
 def not_found(e):
     """Handle 404 errors for API routes."""
-    return jsonify({"error": "Resource not found"}), 404
+    return jsonify({"success": False, "error": "Resource not found"}), 404
 
 @api_bp.errorhandler(500)
 def server_error(e):
     """Handle 500 errors for API routes."""
-    return jsonify({"error": "Internal server error"}), 500
+    return jsonify({"success": False, "error": "Internal server error"}), 500
 
 @api_bp.errorhandler(HTTPException)
 def handle_http_exception(e):

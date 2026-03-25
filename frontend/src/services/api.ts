@@ -1,14 +1,15 @@
 /**
  * API Service for making requests to the backend
  */
+import { AxiosError } from 'axios';
 
 // Define the base URL for API requests
 const API_BASE_URL = process.env.NODE_ENV === 'production'
   ? 'https://your-production-domain.com/api'
-  : 'http://localhost:5000/api';
+  : process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
 // Common interface for API responses
-interface ApiResponse<T> {
+export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
@@ -28,14 +29,15 @@ export interface Testimonial {
   name: string;
   company: string;
   quote: string;
+  comment?: string;
   avatar: string;
 }
 
 export interface PricingPlan {
   id: number;
   name: string;
-  price: number;
-  period: string;
+  price: number | string;
+  period?: string;
   features: string[];
 }
 
@@ -81,9 +83,24 @@ async function apiRequest<T>(
     return data;
   } catch (error) {
     console.error('API request failed:', error);
-    throw error;
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred'
+    };
   }
 }
+
+/**
+ * Generic error handler for API requests
+ * @param error The error object
+ * @returns Formatted error message
+ */
+export const handleApiError = (error: unknown): string => {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return 'An unknown error occurred';
+};
 
 // API functions for different endpoints
 export const api = {
@@ -164,6 +181,37 @@ export const api = {
       return false;
     }
   },
+
+  /**
+   * Subscribe to newsletter
+   * @param email Email to subscribe
+   * @returns Promise with subscription result
+   */
+  subscribeNewsletter: async (email: string): Promise<ApiResponse<null>> => {
+    return apiRequest<null>('/subscribe', {
+      method: 'POST',
+      body: JSON.stringify({ email })
+    });
+  },
+
+  /**
+   * Fetches general information about the API
+   * @returns Promise with the API information
+   */
+  getApiInfo: async (): Promise<any> => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/hello`);
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch API information');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('API Error:', error);
+      throw error;
+    }
+  }
 };
 
 export default api;
