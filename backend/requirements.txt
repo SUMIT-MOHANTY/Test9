@@ -1,4 +1,4 @@
-# Core Flask dependencies
+# Flask and core dependencies
 Flask==2.2.3
 Werkzeug==2.2.3
 Jinja2==3.0.1
@@ -12,15 +12,20 @@ Flask-Cors==3.0.10
 python-dotenv==1.0.0
 python-json-logger==2.0.2
 
-# Testing and development
-pytest==7.3.1
-pytest-flask==1.2.0
-flake8==6.0.0
-black==23.3.0
-
-# Production dependencies
+# Production server
 gunicorn==20.1.0
 gevent==22.10.2
 
 # Utilities
+python-json-logger==2.0.2
 email-validator==1.1.3
+
+# Optional Rate Limiting (commented out by default)
+# flask-limiter==2.5.0
+
+# Testing and development
+pytest==7.3.1
+pytest-flask==1.2.0
+coverage==6.0.1
+flake8==6.0.0
+black==23.3.0

@@ -1,12 +1,19 @@
 """
-API routes for the GenAI Landing Page.
-This module defines the API endpoints that provide data to the frontend.
+API endpoints implementation.
+
+This module defines the API routes for the GenAI landing page,
+including endpoints for features, use cases, and contact form submissions.
 """
-import logging
+
+import re
 import json
-from flask import jsonify, request, Blueprint, abort
-from werkzeug.exceptions import HTTPException
+import logging
+from flask import Blueprint, jsonify, request, current_app, abort
+from werkzeug.exceptions import BadRequest, HTTPException
+
+# Create API Blueprint
 from . import api_bp
+logger = logging.getLogger(__name__)
 
 # Sample data for the API endpoints
 FEATURES = [
@@ -33,6 +40,33 @@ FEATURES = [
         "title": "Automated Content Creation",
         "description": "Generate high-quality content automatically for marketing, reports, and more.",
         "icon": "create"
+    }
+]
+
+USE_CASES = [
+    {
+        "id": "content-creation",
+        "title": "Content Creation",
+        "description": "Generate high-quality blog posts, marketing copy, and social media content in seconds, not hours.",
+        "image_url": "/static/images/content-creation.jpg"
+    },
+    {
+        "id": "customer-support",
+        "title": "Customer Support",
+        "description": "Deploy intelligent chatbots that understand customer inquiries and provide helpful, accurate responses 24/7.",
+        "image_url": "/static/images/customer-support.jpg"
+    },
+    {
+        "id": "data-analysis",
+        "title": "Data Analysis",
+        "description": "Transform raw data into valuable insights with automated analysis and visualization tools.",
+        "image_url": "/static/images/data-analysis.jpg"
+    },
+    {
+        "id": "product-design",
+        "title": "Product Design",
+        "description": "Accelerate your design process with AI-generated mockups, prototypes, and design variations.",
+        "image_url": "/static/images/product-design.jpg"
     }
 ]
 
@@ -109,6 +143,17 @@ def get_features():
         logging.error(f"Error retrieving features: {str(e)}")
         return jsonify({"success": False, "error": "Failed to retrieve features"}), 500
 
+@api_bp.route('/use-cases', methods=['GET'])
+def get_use_cases():
+    """
+    Get a list of GenAI use cases.
+
+    Returns:
+        JSON response containing use cases list.
+    """
+    logger.info("Fetching use cases list")
+    return jsonify({"use_cases": USE_CASES})
+
 @api_bp.route('/testimonials', methods=['GET'])
 def get_testimonials():
     """
@@ -141,20 +186,42 @@ def get_contact():
 def contact():
     """Endpoint to handle contact form submissions"""
     try:
+        # Get request data
         data = request.get_json()
+
+        # Check if data exists
+        if not data:
+            logger.warning("Contact form submission with empty data")
+            raise BadRequest("Missing request data")
 
         # Validate required fields
         required_fields = ['name', 'email', 'message']
         for field in required_fields:
             if field not in data or not data[field].strip():
-                return jsonify({"success": False, "error": f"Missing required field: {field}"}), 400
+                logger.warning(f"Contact form missing required field: {field}")
+                return jsonify({
+                    "success": False, 
+                    "error": f"The {field} field is required."
+                }), 400
         
-        # Validate email format (basic validation)
-        if '@' not in data['email'] or '.' not in data['email']:
+        # Validate email format
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, data['email']):
+            logger.warning(f"Invalid email format: {data['email']}")
             return jsonify({
                 "success": False,
-                "error": "Invalid email format"
+                "error": "Please provide a valid email address."
             }), 400
+
+        # Check message length
+        if len(data['message']) < 10:
+            return jsonify({
+                "success": False,
+                "error": "Message must be at least 10 characters long."
+            }), 400
+
+        # Log the contact form submission
+        logger.info(f"Contact form submission received from {data['name']} ({data['email']})")
 
         # In a real application, we would process the form data here
         # e.g., send email, store in database, etc.
@@ -163,7 +230,14 @@ def contact():
             "success": True,
             "message": "Thank you for your message! We will get back to you soon."
         })
+    except BadRequest as e:
+        logger.warning(f"Bad request in contact form: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 400
     except Exception as e:
+        logger.error(f"Error processing contact form: {str(e)}", exc_info=True)
         return jsonify({"success": False, "error": str(e)}), 500
 
 @api_bp.route('/pricing', methods=['GET'])
@@ -184,8 +258,8 @@ def subscribe_newsletter():
             return jsonify({"success": False, "error": "Email is required"}), 400
 
         # Simple email validation
-        email = data['email']
-        if '@' not in email or '.' not in email:
+        email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_pattern, data['email']):
             return jsonify({"success": False, "error": "Invalid email format"}), 400
 
         # In a real application, you would save this to a database
@@ -194,14 +268,35 @@ def subscribe_newsletter():
         return jsonify({"success": False, "error": str(e)}), 500
 
 # Error handlers for the API blueprint
+@api_bp.errorhandler(400)
+def handle_bad_request(e):
+    """Handle 400 Bad Request errors."""
+    logger.warning(f"Bad request: {str(e)}")
+    return jsonify({
+        "success": False,
+        "error": str(e),
+        "code": 400
+    }), 400
+
 @api_bp.errorhandler(404)
 def not_found(e):
     """Handle 404 errors for API routes."""
     return jsonify({"success": False, "error": "Resource not found"}), 404
 
+@api_bp.errorhandler(405)
+def handle_method_not_allowed(e):
+    """Handle 405 Method Not Allowed errors."""
+    logger.warning(f"Method not allowed: {request.method} {request.path}")
+    return jsonify({
+        "success": False,
+        "error": f"Method {request.method} not allowed",
+        "code": 405
+    }), 405
+
 @api_bp.errorhandler(500)
 def server_error(e):
     """Handle 500 errors for API routes."""
+    logger.error(f"Internal server error: {str(e)}", exc_info=True)
     return jsonify({"success": False, "error": "Internal server error"}), 500
 
 @api_bp.errorhandler(HTTPException)

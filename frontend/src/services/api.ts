@@ -1,12 +1,64 @@
 /**
  * API Service for making requests to the backend
  */
+import axios from 'axios';
 import { AxiosError } from 'axios';
 
-// Define the base URL for API requests
+// Define API base URL
 const API_BASE_URL = process.env.NODE_ENV === 'production'
   ? 'https://your-production-domain.com/api'
   : process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+// Configure axios instance
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 10000, // 10 seconds timeout
+});
+
+// Request interceptor for handling common request tasks
+apiClient.interceptors.request.use(
+  (config) => {
+    // Add authorization token if available
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Response interceptor for handling common response tasks
+apiClient.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    // Handle expired tokens or authentication issues
+    if (error.response && error.response.status === 401) {
+      // Clear local storage and redirect to login
+      localStorage.removeItem('authToken');
+    }
+
+    // Create a more user-friendly error message
+    const errorMessage = error.response?.data?.message ||
+                         error.message ||
+                         'An unexpected error occurred';
+
+    // Create a custom error object with additional information
+    const customError = new Error(errorMessage);
+    customError.name = error.name;
+    customError.stack = error.stack;
+    customError.response = error.response;
+
+    return Promise.reject(customError);
+  }
+);
 
 // Common interface for API responses
 export interface ApiResponse<T> {
@@ -100,6 +152,29 @@ export const handleApiError = (error: unknown): string => {
     return error.message;
   }
   return 'An unknown error occurred';
+};
+
+/**
+ * Function to fetch home page data from the API
+ */
+export const fetchHomePageData = async () => {
+  try {
+    const response = await apiClient.get('/content/home');
+    return response.data;
+  } catch (error) {
+    // Use retry logic for network errors
+    if (error.message === 'Network Error') {
+      try {
+        // Wait 2 seconds and retry once
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const response = await apiClient.get('/content/home');
+        return response.data;
+      } catch (retryError) {
+        throw retryError;
+      }
+    }
+    throw error;
+  }
 };
 
 // API functions for different endpoints
@@ -214,4 +289,4 @@ export const api = {
   }
 };
 
-export default api;
+export default apiClient;
