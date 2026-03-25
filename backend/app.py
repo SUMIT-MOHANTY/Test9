@@ -1,37 +1,29 @@
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask
 from flask_cors import CORS
-from config import config
-from routes import init_app
+from routes import api
 
-def create_app(config_name='default'):
-    app = Flask(__name__,
-                static_folder='static',
-                template_folder='templates')
+def create_app():
+    app = Flask(__name__)
 
-    # Load configuration
-    app.config.from_object(config[config_name])
-    config[config_name].init_app(app)
-
-    # Enable CORS
-    CORS(app)
+    # Configure CORS
+    # Allow requests from the frontend origin
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": ["http://localhost:3000", "https://your-production-domain.com"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }
+    })
 
     # Register blueprints
-    init_app(app)
+    app.register_blueprint(api.bp, url_prefix='/api')
 
-    @app.route('/')
-    def index():
-        return jsonify({"message": "Welcome to GenAI Landing Page API"})
-
-    @app.errorhandler(404)
-    def not_found(error):
-        return jsonify({"error": "Not found"}), 404
-
-    @app.errorhandler(500)
-    def server_error(error):
-        return jsonify({"error": "Server error"}), 500
+    @app.route('/health', methods=['GET'])
+    def health_check():
+        return {"status": "healthy"}, 200
 
     return app
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(debug=True, host='0.0.0.0', port=5000)
