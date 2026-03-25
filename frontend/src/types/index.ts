@@ -1,40 +1,60 @@
-// Common interfaces used across the application
+// Common interfaces for component props
 
-/**
- * Contact form data interface
- */
-export interface ContactFormData {
-  name: string;
-  email: string;
-  company?: string;
-  message: string;
+export interface HeroProps {
+  title: string;
+  subtitle: string;
+  ctaText: string;
 }
 
-/**
- * API response interface
- */
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  message?: string;
-  error?: string;
-}
-
-/**
- * Feature interface for feature section
- */
 export interface Feature {
-  id: number;
+  id: string;
   title: string;
   description: string;
   icon: string;
 }
 
-/**
- * Navigation item interface
- */
-export interface NavItem {
-  label: string;
-  path: string;
-  external?: boolean;
+export interface FeaturesProps {
+  features: Feature[];
+}
+
+export interface PricingPlan {
+  id: string;
+  name: string;
+  price: number;
+  billingCycle: string;
+  features: string[];
+  popular: boolean;
+}
+
+export interface PricingSectionProps {
+  plans: PricingPlan[];
+}
+
+export interface Testimonial {
+  id: string;
+  name: string;
+  role: string;
+  company: string;
+  content: string;
+  avatar: string;
+}
+
+export interface TestimonialsProps {
+  testimonials: Testimonial[];
+}
+
+export interface FAQItem {
+  id: string;
+  question: string;
+  answer: string;
+}
+
+export interface FAQProps {
+  faqs: FAQItem[];
+}
+
+export interface CTAProps {
+  title: string;
+  subtitle: string;
+  buttonText: string;
 }

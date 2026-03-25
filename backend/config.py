@@ -1,61 +1,95 @@
+"""
+Configuration settings for the Flask application.
+
+This module defines configuration classes for different environments
+(development, testing, production) and loads environment variables.
+"""
+
 import os
+from datetime import timedelta
 
 class Config:
-    """Base configuration class for the Flask application"""
-    # Security
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+    """Base configuration class with common settings."""
 
-    # Application directories
-    BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-    STATIC_FOLDER = os.path.join(BASE_DIR, 'static')
-    TEMPLATES_FOLDER = os.path.join(BASE_DIR, 'templates')
-
-    # CORS settings - allow frontend to communicate with backend
-    CORS_HEADERS = 'Content-Type'
-
-    # Email configuration for contact form (to be implemented)
-    MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.example.com')
-    MAIL_PORT = int(os.environ.get('MAIL_PORT', 587))
-    MAIL_USE_TLS = os.environ.get('MAIL_USE_TLS', True)
-    MAIL_USERNAME = os.environ.get('MAIL_USERNAME', 'user@example.com')
-    MAIL_PASSWORD = os.environ.get('MAIL_PASSWORD', 'password')
-    MAIL_DEFAULT_SENDER = os.environ.get('MAIL_DEFAULT_SENDER', 'noreply@genai.com')
-
-    @staticmethod
-    def init_app(app):
-        """Initialize application with this configuration"""
-        pass
-
-class DevelopmentConfig(Config):
-    """Development configuration"""
-    DEBUG = True
-    TESTING = False
-
-class ProductionConfig(Config):
-    """Production configuration"""
+    # General Flask config
+    SECRET_KEY = os.getenv('SECRET_KEY', 'dev_key_for_development_only')
     DEBUG = False
     TESTING = False
 
-    @classmethod
-    def init_app(cls, app):
+    # API configuration
+    API_TITLE = 'GenAI Landing Page API'
+    API_VERSION = 'v1'
+
+    # Security settings
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    PERMANENT_SESSION_LIFETIME = timedelta(days=7)
+
+    # CORS configuration
+    CORS_ORIGINS = os.getenv('CORS_ORIGINS', '*')
+
+    # Rate limiting
+    ENABLE_RATE_LIMITING = True
+
+    # Logging configuration
+    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
+
+    @staticmethod
+    def init_app(app):
+        """Initialize app with this configuration."""
+        pass
+
+class DevelopmentConfig(Config):
+    """Development environment configuration."""
+
+    DEBUG = True
+    ENABLE_RATE_LIMITING = False
+    CORS_ORIGINS = '*'  # Allow all origins in development
+
+    @staticmethod
+    def init_app(app):
+        """Initialize app with development configuration."""
+        Config.init_app(app)
+        app.logger.info('Development configuration loaded')
+
+class TestingConfig(Config):
+    """Testing environment configuration."""
+
+    TESTING = True
+    DEBUG = True
+    ENABLE_RATE_LIMITING = False
+
+    @staticmethod
+    def init_app(app):
+        """Initialize app with testing configuration."""
+        Config.init_app(app)
+        app.logger.info('Testing configuration loaded')
+
+class ProductionConfig(Config):
+    """Production environment configuration."""
+
+    DEBUG = False
+    SECRET_KEY = os.getenv('SECRET_KEY')  # Must be set in production
+    CORS_ORIGINS = os.getenv('CORS_ORIGINS', 'https://example.com,https://www.example.com').split(',')
+
+    @staticmethod
+    def init_app(app):
+        """Initialize app with production configuration."""
         Config.init_app(app)
 
-        # Log to stderr in production
-        import logging
-        from logging.handlers import RotatingFileHandler
+        # Validate production configuration
+        if app.config['SECRET_KEY'] == 'dev_key_for_development_only':
+            app.logger.error('SECRET_KEY not configured for production!')
 
-        file_handler = RotatingFileHandler('app.log', maxBytes=10240, backupCount=10)
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s '
-            '[in %(pathname)s:%(lineno)d]'
-        ))
-        file_handler.setLevel(logging.INFO)
-        app.logger.addHandler(file_handler)
-        app.logger.setLevel(logging.INFO)
+        app.logger.info('Production configuration loaded')
 
-# Configuration dictionary
-config = {
+# Configuration dictionary mapping environment names to config classes
+config_by_name = {
     'development': DevelopmentConfig,
+    'testing': TestingConfig,
     'production': ProductionConfig,
+
+    # Default to development if not specified
     'default': DevelopmentConfig
 }

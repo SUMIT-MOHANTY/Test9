@@ -1,70 +1,79 @@
-import { AxiosError } from 'axios';
+import axios from 'axios';
 
-// Define API base URL
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 
-// Interface for contact form data
-interface ContactFormData {
-  name: string;
-  email: string;
-  company?: string;
-  message: string;
-}
+// Configure axios instance
+const apiClient = axios.create({
+  baseURL: API_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 10000, // 10 seconds timeout
+});
 
-/**
- * Sends contact form data to the backend API
- * @param formData The contact form data
- * @returns Promise with the response data
- */
-export const sendContactForm = async (formData: ContactFormData): Promise<any> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/contact`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(formData),
-    });
+// Request interceptor for handling common request tasks
+apiClient.interceptors.request.use(
+  (config) => {
+    // Add authorization token if available
+    const token = localStorage.getItem('authToken');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to send contact form');
+// Response interceptor for handling common response tasks
+apiClient.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    // Handle expired tokens or authentication issues
+    if (error.response && error.response.status === 401) {
+      // Clear local storage and redirect to login
+      localStorage.removeItem('authToken');
     }
 
-    return await response.json();
+    // Create a more user-friendly error message
+    const errorMessage = error.response?.data?.message ||
+                         error.message ||
+                         'An unexpected error occurred';
+
+    // Create a custom error object with additional information
+    const customError = new Error(errorMessage);
+    customError.name = error.name;
+    customError.stack = error.stack;
+    customError.response = error.response;
+
+    return Promise.reject(customError);
+  }
+);
+
+// Function to fetch home page data from the API
+export const fetchHomePageData = async () => {
+  try {
+    const response = await apiClient.get('/content/home');
+    return response.data;
   } catch (error) {
-    console.error('API Error:', error);
+    // Use retry logic for network errors
+    if (error.message === 'Network Error') {
+      try {
+        // Wait 2 seconds and retry once
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const response = await apiClient.get('/content/home');
+        return response.data;
+      } catch (retryError) {
+        throw retryError;
+      }
+    }
     throw error;
   }
 };
 
-/**
- * Fetches general information about the API
- * @returns Promise with the API information
- */
-export const getApiInfo = async (): Promise<any> => {
-  try {
-    const response = await fetch(`${API_BASE_URL}/hello`);
+// Additional API functions can be exported here
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch API information');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('API Error:', error);
-    throw error;
-  }
-};
-
-/**
- * Generic error handler for API requests
- * @param error The error object
- * @returns Formatted error message
- */
-export const handleApiError = (error: unknown): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return 'An unknown error occurred';
-};
+export default apiClient;

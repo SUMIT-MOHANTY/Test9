@@ -1,13 +1,10 @@
-from flask import Blueprint
+"""
+Initialize the routes package.
 
-# Create a Blueprint for API routes
-api_bp = Blueprint('api', __name__, url_prefix='/api')
+This module initializes the routes package and can be used to
+register additional blueprints if needed.
+"""
 
-# Import route definitions after Blueprint creation to avoid circular imports
-from . import api
-
-# Register the routes with the Blueprint
-def init_app(app):
-    """Register the API routes with the Flask application"""
-    app.register_blueprint(api_bp)
-    return app
+# This file is intentionally kept minimal as blueprints are registered
+# in the main app.py file. This serves primarily as a marker to make
+# the 'routes' directory a proper Python package.
