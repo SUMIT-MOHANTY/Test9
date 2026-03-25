@@ -10,6 +10,8 @@ import logging
 from logging.handlers import RotatingFileHandler
 from flask import Flask, send_from_directory, jsonify, request
 from flask_cors import CORS
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from werkzeug.exceptions import HTTPException
 
 from config import config_by_name
@@ -31,7 +33,7 @@ def create_app(config_name='development'):
                 static_folder='../frontend/build/static',
                 template_folder='../frontend/build')
 
-    # Load config based on environment
+    # Load configuration based on environment
     app.config.from_object(config_by_name[config_name])
 
     # Configure logging
@@ -53,6 +55,15 @@ def create_app(config_name='development'):
     # Rate limiting setup
     if app.config.get('ENABLE_RATE_LIMITING', False):
         setup_rate_limiting(app)
+
+    # Add security headers middleware
+    @app.after_request
+    def add_security_headers(response):
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['X-XSS-Protection'] = '1; mode=block'
+        response.headers['Content-Security-Policy'] = "default-src 'self'"
+        return response
 
     # Global error handler
     @app.errorhandler(Exception)
@@ -159,13 +170,11 @@ def setup_rate_limiting(app):
         app (Flask): The Flask application instance.
     """
     try:
-        from flask_limiter import Limiter
-        from flask_limiter.util import get_remote_address
-
         limiter = Limiter(
             app=app,
             key_func=get_remote_address,
-            default_limits=["200 per day", "50 per hour"]
+            default_limits=["200 per day", "50 per hour"],
+            storage_uri=app.config.get("RATELIMIT_STORAGE_URL", "memory://"),
         )
 
         app.logger.info("Rate limiting configured successfully")
@@ -182,8 +191,11 @@ if __name__ == "__main__":
     
     # Run the app
     port = int(os.getenv('FLASK_PORT', 5000))
-    app_instance.run(
-        host=os.getenv('FLASK_HOST', '0.0.0.0'),
-        port=port,
-        debug=os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
-    )
+    debug = os.getenv('FLASK_DEBUG', 'True').lower() == 'true'
+    
+    # Use secure debug settings
+    if debug and not os.environ.get('FLASK_ENV') == 'production':
+        app_instance.run(host=os.getenv('FLASK_HOST', '0.0.0.0'), port=port, debug=True)
+    else:
+        # For production, prefer gunicorn or another WSGI server
+        app_instance.run(host=os.getenv('FLASK_HOST', '0.0.0.0'), port=port, debug=False)

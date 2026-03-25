@@ -1,13 +1,15 @@
 /**
  * API Service for making requests to the backend
  */
-import axios from 'axios';
-import { AxiosError } from 'axios';
+import axios, { AxiosError, AxiosResponse } from 'axios';
 
 // Define API base URL
 const API_BASE_URL = process.env.NODE_ENV === 'production'
   ? 'https://your-production-domain.com/api'
   : process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000; // ms
 
 // Configure axios instance
 const apiClient = axios.create({
@@ -16,6 +18,7 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
   },
   timeout: 10000, // 10 seconds timeout
+  withCredentials: true, // Enables sending cookies with requests
 });
 
 // Request interceptor for handling common request tasks
@@ -25,6 +28,12 @@ apiClient.interceptors.request.use(
     const token = localStorage.getItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    
+    // Get CSRF token from cookie if it exists
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      config.headers['X-CSRF-Token'] = csrfToken;
     }
     return config;
   },
@@ -38,11 +47,37 @@ apiClient.interceptors.response.use(
   (response) => {
     return response;
   },
-  (error) => {
-    // Handle expired tokens or authentication issues
+  async (error: AxiosError) => {
+    const config = error.config;
+    // Property doesn't exist on type 'AxiosRequestConfig', adding a custom property
+    const customConfig = config as any;
+
+    // Retry logic for network errors or 5xx responses
+    if (
+      (error.response?.status && error.response.status >= 500) ||
+      error.code === 'ECONNABORTED' ||
+      !error.response
+    ) {
+      if (!customConfig._retry || customConfig._retry < MAX_RETRIES) {
+        customConfig._retry = (customConfig._retry || 0) + 1;
+
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+
+        return apiClient(config);
+      }
+    }
+
+    // Handle 401 Unauthorized - redirect to login
     if (error.response && error.response.status === 401) {
       // Clear local storage and redirect to login
       localStorage.removeItem('authToken');
+      localStorage.removeItem('user');
+
+      // Redirect to login if not already there
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
 
     // Create a more user-friendly error message
@@ -59,6 +94,12 @@ apiClient.interceptors.response.use(
     return Promise.reject(customError);
   }
 );
+
+// Helper function to extract CSRF token from cookies
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+  return match ? match[2] : null;
+}
 
 // Common interface for API responses
 export interface ApiResponse<T> {
@@ -142,12 +183,47 @@ async function apiRequest<T>(
   }
 }
 
+// Type-safe API methods
+export const fetchData = async <T>(url: string): Promise<T> => {
+  try {
+    const response: AxiosResponse<T> = await apiClient.get(url);
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+    throw error;
+  }
+};
+
+export const postData = async <T>(url: string, data: any): Promise<T> => {
+  try {
+    const response: AxiosResponse<T> = await apiClient.post(url, data);
+    return response.data;
+  } catch (error) {
+    handleApiError(error);
+    throw error;
+  }
+};
+
 /**
  * Generic error handler for API requests
  * @param error The error object
  * @returns Formatted error message
  */
 export const handleApiError = (error: unknown): string => {
+  if (axios.isAxiosError(error)) {
+    const axiosError = error as AxiosError;
+
+    // Log different types of errors appropriately
+    if (!axiosError.response) {
+      console.error('Network Error:', axiosError.message);
+    } else {
+      console.error(`API Error ${axiosError.response.status}:`,
+        axiosError.response.data);
+    }
+  } else {
+    console.error('Unexpected Error:', error);
+  }
+
   if (error instanceof Error) {
     return error.message;
   }

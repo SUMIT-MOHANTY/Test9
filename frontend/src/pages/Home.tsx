@@ -12,26 +12,33 @@ import ContactForm from '../components/ContactForm';
 import Footer from '../components/Footer';
 import { fetchHomePageData } from '../services/api';
 import '../styles/global.css';
+import ErrorBoundary from '../components/common/ErrorBoundary';
+import LoadingFallback from '../components/common/LoadingFallback';
+import SEO from '../components/common/SEO';
 
 interface HomePageData {
   heroContent?: {
     title: string;
     subtitle: string;
     ctaText: string;
+    imageUrl?: string;
   };
   features?: Array<{
     id: string;
     title: string;
     description: string;
     icon: string;
+    iconName?: string;
   }>;
   testimonials?: Array<{
     id: string;
     name: string;
-    role: string;
+    role?: string;
     company: string;
-    content: string;
-    avatar: string;
+    content?: string;
+    quote?: string;
+    avatar?: string;
+    avatarUrl?: string;
   }>;
   faq?: Array<{
     id: string;
@@ -61,6 +68,7 @@ const Home: React.FC = () => {
   const [pageData, setPageData] = useState<HomePageData>({});
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadPageData = async () => {
@@ -89,12 +97,12 @@ const Home: React.FC = () => {
     );
   }
 
-  if (error) {
+  if (error || validationError) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
         <Alert severity="error">
           <AlertTitle>Oops! Something went wrong</AlertTitle>
-          {error}
+          {error || validationError}
         </Alert>
         <Box sx={{ textAlign: 'center', mt: 2 }}>
           <button onClick={() => window.location.reload()}>Try Again</button>
@@ -104,40 +112,64 @@ const Home: React.FC = () => {
   }
 
   return (
-    <div className="home-page">
-      <Header />
-      <Box component="main">
-        {/* Hero Section */}
-        <Hero
-          title={pageData.heroContent?.title || "AI-Powered Solutions for Modern Businesses"}
-          subtitle={pageData.heroContent?.subtitle || "Transform your workflow with our cutting-edge AI tools"}
-          ctaText={pageData.heroContent?.ctaText || "Get Started"}
-        />
+    <>
+      <SEO
+        title="GenAI Platform - Transform Your Business with AI"
+        description="Our GenAI platform helps businesses leverage artificial intelligence to automate tasks, gain insights, and improve productivity."
+        keywords="AI, artificial intelligence, generative AI, machine learning, business automation"
+        ogImage="/images/og-home.png"
+        ogUrl="https://genai-platform.com"
+      />
+      
+      <div className="home-page">
+        <Header />
+        <Box component="main">
+          <ErrorBoundary>
+            {/* Hero Section */}
+            <Hero
+              title={pageData.heroContent?.title || "AI-Powered Solutions for Modern Businesses"}
+              subtitle={pageData.heroContent?.subtitle || "Transform your workflow with our cutting-edge AI tools"}
+              ctaText={pageData.heroContent?.ctaText || "Get Started"}
+            />
+          </ErrorBoundary>
 
-        {/* Features Section */}
-        <Features features={pageData.features || []} />
+          <ErrorBoundary>
+            {/* Features Section */}
+            <Features features={pageData.features || []} />
+          </ErrorBoundary>
 
-        {/* Pricing Section */}
-        <PricingSection plans={pageData.pricingPlans || []} />
+          <ErrorBoundary>
+            {/* Pricing Section */}
+            <PricingSection plans={pageData.pricingPlans || []} />
+          </ErrorBoundary>
 
-        {/* Testimonials Section */}
-        <Testimonials testimonials={pageData.testimonials || []} />
+          <ErrorBoundary>
+            {/* Testimonials Section */}
+            <Testimonials testimonials={pageData.testimonials || []} />
+          </ErrorBoundary>
 
-        {/* FAQ Section */}
-        <FAQ faqs={pageData.faq || []} />
+          <ErrorBoundary>
+            {/* FAQ Section */}
+            <FAQ faqs={pageData.faq || []} />
+          </ErrorBoundary>
 
-        {/* Contact Form */}
-        <ContactForm />
-        
-        {/* CTA Section */}
-        <CTA
-          title={pageData.ctaSection?.title || "Ready to transform your business?"}
-          subtitle={pageData.ctaSection?.subtitle || "Join thousands of satisfied customers today."}
-          buttonText={pageData.ctaSection?.buttonText || "Start Free Trial"}
-        />
-      </Box>
-      <Footer />
-    </div>
+          <ErrorBoundary>
+            {/* Contact Form */}
+            <ContactForm />
+          </ErrorBoundary>
+          
+          <ErrorBoundary>
+            {/* CTA Section */}
+            <CTA
+              title={pageData.ctaSection?.title || "Ready to transform your business?"}
+              subtitle={pageData.ctaSection?.subtitle || "Join thousands of satisfied customers today."}
+              buttonText={pageData.ctaSection?.buttonText || "Start Free Trial"}
+            />
+          </ErrorBoundary>
+        </Box>
+        <Footer />
+      </div>
+    </>
   );
 };
 

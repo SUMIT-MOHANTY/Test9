@@ -1,19 +1,40 @@
 """
-API endpoints implementation.
-
-This module defines the API routes for the GenAI landing page,
-including endpoints for features, use cases, and contact form submissions.
+API routes for the GenAI Landing Page.
+This module defines the API endpoints that provide data to the frontend.
 """
 
 import re
 import json
 import logging
-from flask import Blueprint, jsonify, request, current_app, abort
-from werkzeug.exceptions import BadRequest, HTTPException
-
-# Create API Blueprint
+from flask import jsonify, request, abort, current_app
+import os
+from werkzeug.exceptions import HTTPException, BadRequest
+from functools import wraps
 from . import api_bp
+
 logger = logging.getLogger(__name__)
+
+# Request validation decorator
+def validate_json(*required_fields):
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            # Check if request has JSON
+            if not request.is_json:
+                logger.warning("Request without JSON data received")
+                raise BadRequest("Request must be JSON")
+
+            # Check for required fields
+            data = request.get_json()
+            missing_fields = [field for field in required_fields if field not in data]
+
+            if missing_fields:
+                logger.warning(f"Request missing required fields: {missing_fields}")
+                raise BadRequest(f"Missing required fields: {', '.join(missing_fields)}")
+
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator
 
 # Sample data for the API endpoints
 FEATURES = [
@@ -123,6 +144,14 @@ PRICING = [
         "features": ["All Pro features", "Unlimited users", "24/7 support", "Custom integration"]
     }
 ]
+
+@api_bp.route('/health', methods=['GET'])
+def health_check():
+    """API health check endpoint."""
+    return jsonify({
+        'status': 'ok',
+        'message': 'API is operational'
+    })
 
 @api_bp.route('/hello', methods=['GET'])
 def hello():

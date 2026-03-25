@@ -1,145 +1,175 @@
-import React, { useState, FormEvent } from 'react';
-import { api, ContactFormData } from '../services/api';
+import React, { useState } from 'react';
+import { ContactFormProps, ContactFormData } from '../types';
 
-const ContactForm: React.FC = () => {
-  // Form state
+const ContactForm: React.FC<ContactFormProps> = ({
+  onSubmit,
+  isSubmitting = false,
+  submitError = null,
+  submitSuccess = false,
+}) => {
   const [formData, setFormData] = useState<ContactFormData>({
     name: '',
     email: '',
-    company: '',
-    phone: '',
-    message: ''
+    message: '',
   });
 
-  // Form status
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitResult, setSubmitResult] = useState<{
-    success: boolean;
-    message: string;
-  } | null>(null);
+  const [formErrors, setFormErrors] = useState({
+    name: '',
+    email: '',
+    message: '',
+  });
 
-  // Handle form input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target;
-    setFormData((prevData) => ({
-      ...prevData,
-      [name]: value
-    }));
+  const validateEmail = (email: string): boolean => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
   };
 
-  // Handle form submission
-  const handleSubmit = async (e: FormEvent) => {
+  const validateForm = (): boolean => {
+    let isValid = true;
+    const errors = {
+      name: '',
+      email: '',
+      message: '',
+    };
+
+    if (!formData.name.trim()) {
+      errors.name = 'Name is required';
+      isValid = false;
+    }
+
+    if (!formData.email.trim()) {
+      errors.email = 'Email is required';
+      isValid = false;
+    } else if (!validateEmail(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+      isValid = false;
+    }
+
+    if (!formData.message.trim()) {
+      errors.message = 'Message is required';
+      isValid = false;
+    }
+
+    setFormErrors(errors);
+    return isValid;
+  };
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value } = e.target;
+    setFormData({
+      ...formData,
+      [name]: value,
+    });
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    setSubmitResult(null);
 
-    try {
-      const result = await api.submitContactForm(formData);
-      setSubmitResult(result);
+    if (!validateForm()) {
+      return;
+    }
 
-      // Reset form if successful
-      if (result.success) {
+    if (onSubmit) {
+      try {
+        await onSubmit(formData);
+        // Clear form after successful submission
         setFormData({
           name: '',
           email: '',
-          company: '',
-          phone: '',
-          message: ''
+          message: '',
         });
+      } catch (error) {
+        // Error handling is managed by parent component
       }
-    } catch (error) {
-      setSubmitResult({
-        success: false,
-        message: error instanceof Error ? error.message : 'An unexpected error occurred'
-      });
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="contact-form-container">
-      <h2>Contact Us</h2>
+    <section id="contact" className="contact-section">
+      <div className="container">
+        <h2>Contact Us</h2>
+        <form className="contact-form" onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label htmlFor="name">Name</label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
+              disabled={isSubmitting}
+              aria-invalid={!!formErrors.name}
+              aria-describedby={formErrors.name ? "nameError" : undefined}
+            />
+            {formErrors.name && (
+              <p id="nameError" className="error-message">
+                {formErrors.name}
+              </p>
+            )}
+          </div>
 
-      {submitResult && (
-        <div className={`form-message ${submitResult.success ? 'success' : 'error'}`}>
-          {submitResult.message}
-        </div>
-      )}
+          <div className="form-group">
+            <label htmlFor="email">Email</label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              disabled={isSubmitting}
+              aria-invalid={!!formErrors.email}
+              aria-describedby={formErrors.email ? "emailError" : undefined}
+            />
+            {formErrors.email && (
+              <p id="emailError" className="error-message">
+                {formErrors.email}
+              </p>
+            )}
+          </div>
 
-      <form onSubmit={handleSubmit} className="contact-form">
-        <div className="form-group">
-          <label htmlFor="name">Name *</label>
-          <input
-            type="text"
-            id="name"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            required
+          <div className="form-group">
+            <label htmlFor="message">Message</label>
+            <textarea
+              id="message"
+              name="message"
+              value={formData.message}
+              onChange={handleChange}
+              rows={5}
+              disabled={isSubmitting}
+              aria-invalid={!!formErrors.message}
+              aria-describedby={formErrors.message ? "messageError" : undefined}
+            ></textarea>
+            {formErrors.message && (
+              <p id="messageError" className="error-message">
+                {formErrors.message}
+              </p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            className="submit-button"
             disabled={isSubmitting}
-          />
-        </div>
+          >
+            {isSubmitting ? 'Sending...' : 'Send Message'}
+          </button>
 
-        <div className="form-group">
-          <label htmlFor="email">Email *</label>
-          <input
-            type="email"
-            id="email"
-            name="email"
-            value={formData.email}
-            onChange={handleChange}
-            required
-            disabled={isSubmitting}
-          />
-        </div>
+          {submitError && (
+            <div className="submit-error">
+              <p>{submitError}</p>
+            </div>
+          )}
 
-        <div className="form-group">
-          <label htmlFor="company">Company</label>
-          <input
-            type="text"
-            id="company"
-            name="company"
-            value={formData.company}
-            onChange={handleChange}
-            disabled={isSubmitting}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="phone">Phone</label>
-          <input
-            type="tel"
-            id="phone"
-            name="phone"
-            value={formData.phone}
-            onChange={handleChange}
-            disabled={isSubmitting}
-          />
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="message">Message *</label>
-          <textarea
-            id="message"
-            name="message"
-            value={formData.message}
-            onChange={handleChange}
-            required
-            rows={5}
-            disabled={isSubmitting}
-          />
-        </div>
-
-        <button
-          type="submit"
-          className="submit-button"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? 'Submitting...' : 'Submit'}
-        </button>
-      </form>
-    </div>
+          {submitSuccess && (
+            <div className="submit-success">
+              <p>Thank you! Your message has been sent successfully.</p>
+            </div>
+          )}
+        </form>
+      </div>
+    </section>
   );
 };
 
