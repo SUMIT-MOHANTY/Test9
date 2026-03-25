@@ -3,7 +3,10 @@ API routes for the GenAI Landing Page.
 This module defines the API endpoints that provide data to the frontend.
 """
 import logging
-from flask import jsonify
+from flask import jsonify, request, abort
+import json
+import os
+from werkzeug.exceptions import HTTPException
 from . import api_bp
 
 # Sample data for the API endpoints
@@ -64,6 +67,35 @@ CONTACT_INFO = {
     "address": "123 AI Boulevard, Silicon Valley, CA 94025"
 }
 
+PRICING = [
+    {
+        "id": 1,
+        "name": "Basic",
+        "price": 49,
+        "period": "month",
+        "features": ["Core AI features", "5 users", "Basic support"]
+    },
+    {
+        "id": 2,
+        "name": "Pro",
+        "price": 99,
+        "period": "month",
+        "features": ["All Basic features", "25 users", "Priority support", "Advanced analytics"]
+    },
+    {
+        "id": 3,
+        "name": "Enterprise",
+        "price": 249,
+        "period": "month",
+        "features": ["All Pro features", "Unlimited users", "24/7 support", "Custom integration"]
+    }
+]
+
+@api_bp.route('/hello', methods=['GET'])
+def hello():
+    """Simple endpoint to test API functionality"""
+    return jsonify({"message": "Hello from GenAI Landing Page API!"})
+
 @api_bp.route('/features', methods=['GET'])
 def get_features():
     """
@@ -106,6 +138,43 @@ def get_contact():
         logging.error(f"Error retrieving contact information: {str(e)}")
         return jsonify({"error": "Failed to retrieve contact information"}), 500
 
+@api_bp.route('/contact', methods=['POST'])
+def contact():
+    """Endpoint to handle contact form submissions"""
+    try:
+        data = request.get_json()
+
+        # Validate required fields
+        required_fields = ['name', 'email', 'message']
+        for field in required_fields:
+            if field not in data or not data[field].strip():
+                return jsonify({"error": f"Missing required field: {field}"}), 400
+        
+        # Validate email format (basic validation)
+        if '@' not in data['email'] or '.' not in data['email']:
+            return jsonify({
+                "success": False,
+                "error": "Invalid email format"
+            }), 400
+
+        # In a real application, we would process the form data here
+        # e.g., send email, store in database, etc.
+
+        return jsonify({
+            "success": True,
+            "message": "Thank you for your message! We will get back to you soon."
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@api_bp.route('/pricing', methods=['GET'])
+def get_pricing():
+    """Return pricing information"""
+    try:
+        return jsonify({"success": True, "data": PRICING}), 200
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
 # Error handlers for the API blueprint
 @api_bp.errorhandler(404)
 def not_found(e):
@@ -116,3 +185,24 @@ def not_found(e):
 def server_error(e):
     """Handle 500 errors for API routes."""
     return jsonify({"error": "Internal server error"}), 500
+
+@api_bp.errorhandler(HTTPException)
+def handle_http_exception(e):
+    """Handle HTTP exceptions"""
+    response = e.get_response()
+    response.data = json.dumps({
+        "success": False,
+        "error": e.description,
+        "code": e.code
+    })
+    response.content_type = "application/json"
+    return response
+
+@api_bp.errorhandler(Exception)
+def handle_exception(e):
+    """Handle non-HTTP exceptions"""
+    return jsonify({
+        "success": False,
+        "error": "Internal server error",
+        "details": str(e)
+    }), 500

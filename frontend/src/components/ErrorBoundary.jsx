@@ -4,17 +4,18 @@ import { logError } from '../utils/errorHandling';
 class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, errorInfo: null };
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
 
   static getDerivedStateFromError(error) {
     // Update state so the next render will show the fallback UI
-    return { hasError: true };
+    return { hasError: true, error };
   }
 
   componentDidCatch(error, errorInfo) {
     // Log the error to our error reporting service
     this.setState({ errorInfo });
+    console.error("Component error:", error, errorInfo);
     logError(error, { errorInfo, component: this.props.componentName || 'Unknown' });
   }
 
@@ -22,7 +23,7 @@ class ErrorBoundary extends Component {
     if (this.state.hasError) {
       // Fallback UI when an error occurs
       return (
-        <div className="error-boundary">
+        <div className="error-boundary component-error">
           <h2>Something went wrong</h2>
           <p>We apologize for the inconvenience. Please try refreshing the page.</p>
           <button
@@ -38,6 +39,7 @@ class ErrorBoundary extends Component {
               <pre>{this.state.errorInfo.componentStack}</pre>
             </details>
           )}
+          {this.props.fallback && this.props.fallback}
         </div>
       );
     }

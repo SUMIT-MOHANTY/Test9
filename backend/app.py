@@ -4,10 +4,10 @@ This file initializes and configures the Flask application.
 """
 import os
 import logging
-from flask import Flask, send_from_directory, jsonify
+from flask import Flask, send_from_directory, jsonify, request
 from flask_cors import CORS
 from config import config_by_name
-from routes import register_blueprints
+from routes import register_blueprints, api
 
 # Configure logging
 logging.basicConfig(
@@ -33,11 +33,19 @@ def create_app(config_name="default"):
     # Load configuration based on environment
     app.config.from_object(config_by_name[config_name])
 
-    # Enable CORS for all routes
-    CORS(app)
+    # Configure CORS
+    # Allow requests from the frontend origin
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": ["http://localhost:3000", "https://your-production-domain.com"],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }
+    })
 
-    # Register all blueprints
+    # Register blueprints
     register_blueprints(app)
+    app.register_blueprint(api.bp, url_prefix='/api')
 
     # Setup error handlers
     @app.errorhandler(404)
@@ -80,10 +88,7 @@ if __name__ == '__main__':
     # Get configuration from environment or use development by default
     env = os.getenv('FLASK_ENV', 'development')
     app = create_app(env)
-
-    # Import request after app creation to avoid circular imports
-    from flask import request
-
+    
     # Run the app
     port = int(os.getenv('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=True)
