@@ -172,6 +172,18 @@ def get_features():
         logging.error(f"Error retrieving features: {str(e)}")
         return jsonify({"success": False, "error": "Failed to retrieve features"}), 500
 
+@api_bp.route('/features/<int:feature_id>', methods=['GET'])
+def get_feature(feature_id):
+    """Returns a specific feature by ID"""
+    try:
+        feature = next((f for f in FEATURES if f["id"] == feature_id), None)
+        if feature:
+            return jsonify({"success": True, "data": feature})
+        return jsonify({"success": False, "error": "Feature not found"}), 404
+    except Exception as e:
+        logger.error(f"Error retrieving feature: {str(e)}", exc_info=True)
+        return jsonify({"success": False, "error": str(e)}), 500
+
 @api_bp.route('/use-cases', methods=['GET'])
 def get_use_cases():
     """

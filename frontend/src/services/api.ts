@@ -260,8 +260,32 @@ export const api = {
    * @returns Promise with features data
    */
   getFeatures: async (): Promise<Feature[]> => {
-    const response = await apiRequest<Feature[]>('/features');
-    return response.data || [];
+    try {
+      const response = await apiClient.get<ApiResponse<Feature[]>>('/features');
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Failed to fetch features');
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching features:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get a specific feature by ID
+   */
+  getFeature: async (id: number): Promise<Feature> => {
+    try {
+      const response = await apiClient.get<ApiResponse<Feature>>(`/features/${id}`);
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Failed to fetch feature');
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error(`Error fetching feature ${id}:`, error);
+      throw error;
+    }
   },
 
   /**
@@ -269,8 +293,16 @@ export const api = {
    * @returns Promise with testimonials data
    */
   getTestimonials: async (): Promise<Testimonial[]> => {
-    const response = await apiRequest<Testimonial[]>('/testimonials');
-    return response.data || [];
+    try {
+      const response = await apiClient.get<ApiResponse<Testimonial[]>>('/testimonials');
+      if (!response.data.success || !response.data.data) {
+        throw new Error(response.data.error || 'Failed to fetch testimonials');
+      }
+      return response.data.data;
+    } catch (error) {
+      console.error('Error fetching testimonials:', error);
+      throw error;
+    }
   },
 
   /**
@@ -300,16 +332,23 @@ export const api = {
         throw new Error('Please enter a valid email address');
       }
 
-      const response = await apiRequest<{ message: string }>('/contact', {
-        method: 'POST',
-        body: JSON.stringify(formData),
-      });
+      const response = await apiClient.post<ApiResponse<null>>('/contact', formData);
+      if (!response.data.success) {
+        throw new Error(response.data.error || 'Failed to submit form');
+      }
 
       return {
         success: true,
-        message: response.message || 'Form submitted successfully',
+        message: response.data.message || 'Form submitted successfully',
       };
     } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.status === 400) {
+        // Client-side validation error
+        throw new Error(error.response.data.error || 'Invalid form data');
+      } else if (axios.isAxiosError(error) && !error.response) {
+        // Network error
+        throw new Error('Network error. Please check your connection and try again.');
+      }
       console.error('Contact form submission failed:', error);
       return {
         success: false,
@@ -324,11 +363,10 @@ export const api = {
    */
   checkHealth: async (): Promise<boolean> => {
     try {
-      const response = await fetch(`${API_BASE_URL.replace('/api', '')}/health`);
-      const data = await response.json();
-      return data.status === 'healthy';
+      const response = await apiClient.get('/health');
+      return response.status === 200;
     } catch (error) {
-      console.error('Health check failed:', error);
+      console.error('API health check failed:', error);
       return false;
     }
   },
